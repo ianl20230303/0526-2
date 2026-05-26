@@ -87,7 +87,7 @@ st.markdown("""
 
 # 標題與版權
 st.write("## 📅 團隊大字版週行事曆看板")
-st.caption("授權標註：edit by 闕河正 | 高密度無留白完整版")
+st.caption("授權標註：edit by 闕河正 | 互動平移排程完整版")
 
 # ==========================================
 # 3. 初始化 Google Sheets 連線與防呆
@@ -99,15 +99,18 @@ df = conn.read(worksheet="Tasks", ttl="0")
 if "day" not in df.columns:
     df["day"] = "Monday"
 
+# 定義一週工作天清單
+days_list = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+
 # ==========================================
-# 4. 區塊一：快速指派表單（修正右括號）
+# 4. 區塊一：快速指派表單
 # ==========================================
 with st.form("task_input_form", clear_on_submit=True):
     c_title, c_day, c_status, c_owner, c_btn = st.columns([3, 1.5, 1.5, 1.5, 1.5])
     with c_title:
         new_title = st.text_input("任務名稱", placeholder="⚡ 新增排程任務...", label_visibility="collapsed")
     with c_day:
-        new_day = st.selectbox("安排在星期幾", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], label_visibility="collapsed")
+        new_day = st.selectbox("安排在星期幾", days_list, label_visibility="collapsed")
     with c_status:
         new_status = st.selectbox("狀態", ["To Do", "In Progress", "Done"], label_visibility="collapsed")
     with c_owner:
@@ -126,7 +129,7 @@ if submit_btn and new_title and new_owner:
 st.write(" ")
 
 # ==========================================
-# 5. 區塊二：行事曆風五軌看板（完美對齊無縮進錯誤）
+# 5. 區塊二：行事曆風五軌看板（含雙下拉互動按鈕）
 # ==========================================
 st.write("### 🗓️ 本週工作排程一覽")
 
@@ -176,18 +179,33 @@ for idx, day_config in enumerate(days_of_week):
                     """
                 st.markdown(card_html, unsafe_allow_html=True)
                 
-                # 卡片內微型操作按鈕（移動與刪除）
-                c_opt, c_del = st.columns([3, 1])
-                with c_opt:
+                # --- 卡片內超緊湊控制按鈕區（修改狀態、修改星期、刪除） ---
+                c_status_opt, c_day_opt, c_del = st.columns([1.8, 1.8, 0.7])
+                
+                # 變更狀態的下拉選單
+                with c_status_opt:
                     current_options = ["To Do", "In Progress", "Done"]
-                    def_idx = current_options.index(row['status'])
+                    def_status_idx = current_options.index(row['status'])
                     changed_status = st.selectbox(
-                        "修改狀態", current_options, index=def_idx, key=f"cal_status_{t_idx}", label_visibility="collapsed"
+                        "狀態", current_options, index=def_status_idx, key=f"cal_status_{t_idx}", label_visibility="collapsed"
                     )
                     if changed_status != row['status']:
                         df.at[t_idx, "status"] = changed_status
                         conn.update(worksheet="Tasks", data=df)
                         st.rerun()
+                
+                # 變更星期的下拉選單（平移排程核心）
+                with c_day_opt:
+                    def_day_idx = days_list.index(row['day'])
+                    changed_day = st.selectbox(
+                        "星期", days_list, index=def_day_idx, key=f"cal_day_{t_idx}", label_visibility="collapsed"
+                    )
+                    if changed_day != row['day']:
+                        df.at[t_idx, "day"] = changed_day
+                        conn.update(worksheet="Tasks", data=df)
+                        st.rerun()
+                
+                # 刪除按鈕
                 with c_del:
                     if st.button("🗑️", key=f"cal_del_{t_idx}", use_container_width=True):
                         df = df.drop(t_idx).reset_index(drop=True)
