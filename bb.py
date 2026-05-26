@@ -104,3 +104,92 @@ df = conn.read(worksheet="Tasks", ttl="0")
 #  區塊一：快速指派表單
 # ==========================================
 with st.form("task_input_form", clear_on_submit=True):
+    c_title, c_status, c_owner, c_btn = st.columns([3.5, 1.5, 1.5, 1.5])
+    
+    with c_title:
+        new_title = st.text_input("任務名稱", placeholder="⚡ 快速新增任務...", label_visibility="collapsed")
+    with c_status:
+        new_status = st.selectbox("狀態", ["To Do", "In Progress", "Done"], label_visibility="collapsed")
+    with c_owner:
+        new_owner = st.text_input("負責人", placeholder="👤 負責人...", label_visibility="collapsed")
+    with c_btn:
+        submit_btn = st.form_submit_button("➕ 指派同步", use_container_width=True)
+
+if submit_btn and new_title and new_owner:
+    new_data = {"title": new_title, "status": new_status, "owner": new_owner}
+    new_row = pd.DataFrame([new_data])
+    updated_df = pd.concat([df, new_row], ignore_index=True)
+    conn.update(worksheet="Tasks", data=updated_df)
+    st.toast("🎉 任務已成功同步！", icon="🚀")
+    st.rerun()
+
+st.write(" ") 
+
+# ==========================================
+#  區塊二：緊湊型 Trello 看板渲染
+# ==========================================
+columns_config = [
+    {"status": "To Do", "title": "📌 待辦事項", "class": "card-todo", "header_class": "header-todo"},
+    {"status": "In Progress", "title": "⚡ 執行中", "class": "card-progress", "header_class": "header-progress"},
+    {"status": "Done", "title": "✅ 已完成", "class": "card-done", "header_class": "header-done"}
+]
+
+trello_cols = st.columns(3)
+
+for col_idx, config in enumerate(columns_config):
+    status_name = config["status"]
+    
+    with trello_cols[col_idx]:
+        st.markdown(f"<div class='column-header {config['header_class']}'>{config['title']}</div>", unsafe_allow_html=True)
+        
+        filtered_list = df[df["status"] == status_name]
+        
+        if not filtered_list.empty:
+            for idx, row in filtered_list.iterrows():
+                
+                # 卡片 HTML（字體大、特粗、格子小）
+                if status_name == "Done":
+                    card_content = f"""
+                    <div class='trello-card {config['class']}'>
+                        <div class='task-title completed-text'>{row['title']}</div>
+                        <div class='task-owner'>👤 {row['owner']}</div>
+                    </div>
+                    """
+                else:
+                    card_content = f"""
+                    <div class='trello-card {config['class']}'>
+                        <div class='task-title'>{row['title']}</div>
+                        <div class='task-owner'>👤 {row['owner']}</div>
+                    </div>
+                    """
+                st.markdown(card_content, unsafe_allow_html=True)
+                
+                # --- 卡片底部控制微調（緊湊型佈局） ---
+                c_change, c_del = st.columns([3.2, 0.8])
+                
+                with c_change:
+                    current_options = ["To Do", "In Progress", "Done"]
+                    default_idx = current_options.index(status_name)
+                    
+                    changed_status = st.selectbox(
+                        "移動", 
+                        current_options, 
+                        index=default_idx, 
+                        key=f"move_{idx}",
+                        label_visibility="collapsed"
+                    )
+                    if changed_status != status_name:
+                        df.at[idx, "status"] = changed_status
+                        conn.update(worksheet="Tasks", data=df)
+                        st.rerun()
+                        
+                with c_del:
+                    if st.button("🗑️", key=f"del_{idx}", use_container_width=True):
+                        df = df.drop(idx).reset_index(drop=True)
+                        conn.update(worksheet="Tasks", data=df)
+                        st.rerun()
+                
+                # 限制卡片底部的留白，讓整體更緊湊
+                st.write("<div style='margin-bottom: 2px;'></div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<p style='color: #868e96; font-size: 0.9rem; font-style: italic; padding: 5px;'>暫無任務</p>", unsafe_allow_html=True)
