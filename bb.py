@@ -2,16 +2,23 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
+# ==========================================
+# 1. 頁面基礎設定
+# ==========================================
 st.set_page_config(layout="wide", page_title="團隊雲端行事曆看板", page_icon="📅")
 
-# 注入自訂：完美緊湊、無大空白 CSS
+# ==========================================
+# 2. 注入自訂高級感 CSS（高密度、大字體、完美無大空白）
+# ==========================================
 st.markdown("""
 <style>
+    /* 全局背景與字體微調 */
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #f6f8fa;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     
+    /* 頂部表單區塊緊湊化 */
     [data-testid="stForm"] {
         border-radius: 10px;
         background-color: #ffffff;
@@ -20,15 +27,14 @@ st.markdown("""
         padding: 1rem !important;
     }
     
-    /* 移除 min-height 的大空格，改用輕量級的底色與圓角 */
+    /* 行事曆欄位外殼：隨內容自動縮放，絕不留大空白 */
     .calendar-column-box {
         background-color: #eaecef;
         padding: 8px !important;
         border-radius: 8px;
-        /* 拔除 min-height: 350px，不再強行留白！ */
     }
     
-    /* 極致緊湊型卡片 */
+    /* 極致緊湊型卡片樣式 */
     .cal-card {
         background-color: #ffffff;
         padding: 6px 10px;
@@ -38,17 +44,20 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
+    /* 狀態顏色條：紅（待辦）、黃（執行中）、綠（已完成） */
     .cal-todo { border-left-color: #ff4d4d; }
     .cal-progress { border-left-color: #ff922b; }
     .cal-done { border-left-color: #40c057; }
     
+    /* 任務標題：大字體、極致加粗、一眼看清 */
     .cal-title {
-        font-size: 1.2rem !important; /* 保持一眼看清的大字 */
-        font-weight: 800 !important;   /* 極致加粗 */
+        font-size: 1.2rem !important;
+        font-weight: 800 !important;
         color: #1a1a1a;
         line-height: 1.2;
     }
     
+    /* 負責人文字標籤 */
     .cal-owner {
         color: #495057;
         font-size: 0.85rem;
@@ -68,6 +77,7 @@ st.markdown("""
         color: #212529;
     }
     
+    /* 已完成任務刪除線 */
     .completed-text {
         text-decoration: line-through;
         color: #adb5bd;
@@ -75,17 +85,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# 標題與版權
 st.write("## 📅 團隊大字版週行事曆看板")
-st.caption("授權標註：edit by 闕河正 | 緊湊無留白版")
+st.caption("授權標註：edit by 闕河正 | 高密度無留白完整版")
 
+# ==========================================
+# 3. 初始化 Google Sheets 連線與防呆
+# ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(worksheet="Tasks", ttl="0")
 
+# 防呆機制：若雲端試算表無 day 欄位則自動補上
 if "day" not in df.columns:
     df["day"] = "Monday"
 
 # ==========================================
-#  區塊一：快速指派表單
+# 4. 區塊一：快速指派表單（修正右括號）
 # ==========================================
 with st.form("task_input_form", clear_on_submit=True):
     c_title, c_day, c_status, c_owner, c_btn = st.columns([3, 1.5, 1.5, 1.5, 1.5])
@@ -111,18 +126,19 @@ if submit_btn and new_title and new_owner:
 st.write(" ")
 
 # ==========================================
-#  區塊二：行事曆風五軌看板（已修正大空白）
+# 5. 區塊二：行事曆風五軌看板（完美對齊無縮進錯誤）
 # ==========================================
 st.write("### 🗓️ 本週工作排程一覽")
 
 days_of_week = [
     {"eng": "Monday", "chi": "週一 Mon"},
     {"eng": "Tuesday", "chi": "週二 Tue"},
-    {"eng": "Wednesday", "chi": "週實 Wed"},
+    {"eng": "Wednesday", "chi": "週三 Wed"},
     {"eng": "Thursday", "chi": "週四 Thu"},
     {"eng": "Friday", "chi": "週五 Fri"}
 ]
 
+# 建立橫向 5 縱欄
 cal_cols = st.columns(5)
 status_classes = {"To Do": "cal-todo", "In Progress": "cal-progress", "Done": "cal-done"}
 
@@ -130,18 +146,20 @@ for idx, day_config in enumerate(days_of_week):
     day_eng = day_config["eng"]
     
     with cal_cols[idx]:
+        # 1. 渲染星期標頭
         st.markdown(f"<div class='day-header'>{day_config['chi']}</div>", unsafe_allow_html=True)
         
-        # 篩選今天任務
+        # 2. 篩選當天資料
         day_tasks = df[df["day"] == day_eng]
         
-        # 外層包裹一個會隨內容自動縮放的緊湊灰色底色塊
+        # 3. 渲染灰色排程底殼
         st.markdown("<div class='calendar-column-box'>", unsafe_allow_html=True)
         
         if not day_tasks.empty:
             for t_idx, row in day_tasks.iterrows():
                 status_class = status_classes.get(row['status'], "")
                 
+                # 根據狀態決定是否加刪除線
                 if row['status'] == "Done":
                     card_html = f"""
                     <div class='cal-card {status_class}'>
@@ -158,7 +176,7 @@ for idx, day_config in enumerate(days_of_week):
                     """
                 st.markdown(card_html, unsafe_allow_html=True)
                 
-                # 微型控制按鈕
+                # 卡片內微型操作按鈕（移動與刪除）
                 c_opt, c_del = st.columns([3, 1])
                 with c_opt:
                     current_options = ["To Do", "In Progress", "Done"]
@@ -172,13 +190,11 @@ for idx, day_config in enumerate(days_of_week):
                         st.rerun()
                 with c_del:
                     if st.button("🗑️", key=f"cal_del_{t_idx}", use_container_width=True):
-                        if not day_tasks.empty:
-            for t_idx, row in day_tasks.iterrows():
-                # ... 這裡是你原本處理卡片和按鈕的程式碼，都有正確縮進 ...
-                # ...
-                # ...
+                        df = df.drop(t_idx).reset_index(drop=True)
+                        conn.update(worksheet="Tasks", data=df)
+                        st.rerun()
         else:
-            # 🔴 請檢查這裡！else 和內層的 st.markdown 左邊空格必須跟上方對齊
+            # 當天無任務時的精簡提示
             st.markdown("<p style='color: #868e96; font-size: 0.85rem; text-align:center; margin: 5px 0;'>💡 暫無排程</p>", unsafe_allow_html=True)
             
         st.markdown("</div>", unsafe_allow_html=True)
