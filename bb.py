@@ -172,14 +172,13 @@ for idx, day_config in enumerate(days_of_week):
                         st.rerun()
                 with c_del:
                     if st.button("🗑️", key=f"cal_del_{t_idx}", use_container_width=True):
-                        df = df.drop(t_idx).reset_index(drop=True)
-                        conn.update(worksheet="Tasks", data=df)
-                        st.rerun()
+                        if not day_tasks.empty:
+            for t_idx, row in day_tasks.iterrows():
+                # ... 這裡是你原本處理卡片和按鈕的程式碼，都有正確縮進 ...
+                # ...
+                # ...
         else:
-            # 當沒有任務時，顯示極為緊湊的小提示，不佔空間
+            # 🔴 請檢查這裡！else 和內層的 st.markdown 左邊空格必須跟上方對齊
             st.markdown("<p style='color: #868e96; font-size: 0.85rem; text-align:center; margin: 5px 0;'>💡 暫無排程</p>", unsafe_allow_html=True)
             
         st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #adb5bd; font-size: 0.85rem; text-align:center; font-style:italic;'>💡 空白</p>", unsafe_allow_html=True)
-            
-        st.markdown("</div>", unsafe_allow_html=True) # 關閉 calendar-col 容器
